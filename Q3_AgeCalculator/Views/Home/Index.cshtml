@@ -1,0 +1,31 @@
+@{
+    ViewData["Title"] = "Age Calculator";
+}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Age Calculator</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="mb-3">
+                        <label for="dateOfBirth" class="form-label fw-semibold">Date of Birth</label>
+                        <input type="date" id="dateOfBirth" name="dateOfBirth"
+                               class="form-control"
+                               min="1900-01-01"
+                               max="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                        @if (ViewData.ModelState["dateOfBirth"]?.Errors.Count > 0)
+                        {
+                            <div class="text-danger mt-1">
+                                @ViewData.ModelState["dateOfBirth"]!.Errors[0].ErrorMessage
+                            </div>
+                        }
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Calculate Age</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

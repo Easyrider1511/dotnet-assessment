@@ -1,0 +1,38 @@
+# .NET build output
+bin/
+obj/
+out/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.swp
+
+# Test results & coverage
+[Tt]est[Rr]esult*/
+coverage/
+coverage.json
+*.coverage
+*.coveragexml
+*.trx
+
+# Q4 — Azurite local emulator data
+azurite-data/
+__azurite_*__*
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/
+
+# Local SQLite databases (Q4, Q5)
+*.db
+*.db-shm
+*.db-wal
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,12 @@
+<Solution>
+  <Project Path="Q1_Palindrome.Tests/Q1_Palindrome.Tests.csproj" />
+  <Project Path="Q1_Palindrome/Q1_Palindrome.csproj" />
+  <Project Path="Q2_Quicksort.Tests/Q2_Quicksort.Tests.csproj" />
+  <Project Path="Q2_Quicksort/Q2_Quicksort.csproj" />
+  <Project Path="Q3_AgeCalculator.Tests/Q3_AgeCalculator.Tests.csproj" />
+  <Project Path="Q3_AgeCalculator/Q3_AgeCalculator.csproj" />
+  <Project Path="Q4_FileService.Tests/Q4_FileService.Tests.csproj" />
+  <Project Path="Q4_FileService/Q4_FileService.csproj" />
+  <Project Path="Q5_ANPR.Tests/Q5_ANPR.Tests.csproj" />
+  <Project Path="Q5_ANPR/Q5_ANPR.csproj" />
+</Solution>

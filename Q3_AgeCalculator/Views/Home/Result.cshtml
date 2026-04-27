@@ -1,0 +1,40 @@
+@model Q3_AgeCalculator.Models.AgeResult
+@{
+    ViewData["Title"] = "Your Age";
+}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">Your Age</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    From <strong>@Model.DateOfBirth.ToString("dd/MM/yyyy")</strong>
+                    to <strong>@Model.Now.ToString("dd/MM/yyyy HH:mm:ss")</strong>
+                </p>
+
+                <table class="table table-bordered">
+                    <tbody>
+                        <tr><th>Years</th><td>@Model.Years</td></tr>
+                        <tr><th>Months</th><td>@Model.Months</td></tr>
+                        <tr><th>Weeks</th><td>@Model.Weeks</td></tr>
+                        <tr><th>Days</th><td>@Model.Days</td></tr>
+                        <tr><th>Hours</th><td>@Model.Hours</td></tr>
+                        <tr><th>Minutes</th><td>@Model.Minutes</td></tr>
+                        <tr><th>Seconds</th><td>@Model.Seconds</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="alert alert-info">
+                    @Model.Years years, @Model.Months months, @Model.Weeks weeks,
+                    @Model.Days days, @Model.Hours hours, @Model.Minutes minutes,
+                    @Model.Seconds seconds
+                </div>
+
+                <a asp-action="Index" class="btn btn-outline-primary w-100">Calculate Again</a>
+            </div>
+        </div>
+    </div>
+</div>

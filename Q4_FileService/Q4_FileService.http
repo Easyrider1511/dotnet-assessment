@@ -1,0 +1,6 @@
+@Q4_FileService_HostAddress = http://localhost:5133
+
+GET {{Q4_FileService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
