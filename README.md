@@ -211,13 +211,24 @@ CREATE INDEX IX_PlateReads_CameraName_CapturedAt ON PlateReads (CameraName, Capt
 }
 ```
 
+During local development, `Q5_ANPR/appsettings.Development.json` overrides the folders to:
+
+```json
+"CameraFolders": [
+  "SampleData/Camera1",
+  "SampleData/Camera2"
+]
+```
+
+Relative folder paths are resolved from the `Q5_ANPR` project root, so on macOS/Linux you can drop test `*.lpr` files into `Q5_ANPR/SampleData/Camera1` or `Q5_ANPR/SampleData/Camera2` without editing the default Windows example.
+
 ### Run
 
 ```bash
 dotnet run --project Q5_ANPR
 ```
 
-The service immediately processes any `*.lpr` files already present and then watches the configured folders for new ones.
+The service immediately processes any `*.lpr` files already present and then watches the configured folders for new or updated files. Duplicate watcher events are ignored safely, and files that are still being written are retried briefly before failing.
 
 ### Test coverage — `LprParser` and `PlateReadRepository`
 

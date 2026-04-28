@@ -16,12 +16,22 @@ namespace Q5_ANPR.Services
         /// </summary>
         public async Task<bool> TrySaveAsync(PlateRead read)
         {
-            if (await db.PlateReads.AnyAsync(p => p.SourceFileKey == read.SourceFileKey))
-                return false;
-
             db.PlateReads.Add(read);
-            await db.SaveChangesAsync();
-            return true;
+
+            try
+            {
+                await db.SaveChangesAsync();
+                return true;
+            }
+            catch (DbUpdateException)
+            {
+                db.Entry(read).State = EntityState.Detached;
+
+                if (await db.PlateReads.AnyAsync(p => p.SourceFileKey == read.SourceFileKey))
+                    return false;
+
+                throw;
+            }
         }
 
         /// <summary>Retrieves plate reads within a date range, optionally filtered by camera name.</summary>

@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -17,10 +16,15 @@ namespace Q5_ANPR
     public class Worker(
         ILogger<Worker> logger,
         IConfiguration configuration,
+        IHostEnvironment hostEnvironment,
         IServiceProvider services) : BackgroundService
     {
+        private const int MaxReadAttempts = 5;
+        private static readonly TimeSpan ReadRetryDelay = TimeSpan.FromMilliseconds(200);
+
         // Thread-safe queue so FileSystemWatcher events don't block the OS callback thread
         private readonly ConcurrentQueue<string> _pendingFiles = new();
+        private readonly ConcurrentDictionary<string, byte> _scheduledFiles = new();
         private readonly List<FileSystemWatcher> _watchers = [];
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -33,7 +37,15 @@ namespace Q5_ANPR
             }
 
             // Watch each configured camera folder
-            var folders = configuration.GetSection("CameraFolders").Get<string[]>() ?? [];
+            var configuredFolders = configuration.GetSection("CameraFolders").Get<string[]>() ?? [];
+            var folders = new string[configuredFolders.Length];
+
+            for (int i = 0; i < configuredFolders.Length; i++)
+                folders[i] = ResolveFolderPath(configuredFolders[i]);
+
+            if (folders.Length == 0)
+                logger.LogWarning("No camera folders configured.");
+
             foreach (var folder in folders)
                 StartWatcher(folder);
 
@@ -46,12 +58,29 @@ namespace Q5_ANPR
             while (!stoppingToken.IsCancellationRequested)
             {
                 while (_pendingFiles.TryDequeue(out var filePath))
-                    await ProcessFileAsync(filePath);
+                {
+                    try
+                    {
+                        await ProcessFileAsync(filePath, stoppingToken);
+                    }
+                    finally
+                    {
+                        _scheduledFiles.TryRemove(filePath, out _);
+                    }
+                }
 
                 await Task.Delay(500, stoppingToken);
             }
 
             foreach (var w in _watchers) w.Dispose();
+        }
+
+        private string ResolveFolderPath(string folder)
+        {
+            if (Path.IsPathRooted(folder))
+                return Path.GetFullPath(folder);
+
+            return Path.GetFullPath(Path.Combine(hostEnvironment.ContentRootPath, folder));
         }
 
         private void StartWatcher(string folder)
@@ -68,7 +97,11 @@ namespace Q5_ANPR
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite
             };
 
-            watcher.Created += (_, e) => _pendingFiles.Enqueue(e.FullPath);
+            watcher.Created += (_, e) => QueueFile(e.FullPath);
+            watcher.Changed += (_, e) => QueueFile(e.FullPath);
+            watcher.Renamed += (_, e) => QueueFile(e.FullPath);
+            watcher.Error += (_, e) =>
+                logger.LogError(e.GetException(), "File watcher error in {Folder}", folder);
             watcher.EnableRaisingEvents = true;
             _watchers.Add(watcher);
 
@@ -79,14 +112,53 @@ namespace Q5_ANPR
         {
             if (!Directory.Exists(folder)) return;
             foreach (var file in Directory.GetFiles(folder, "*.lpr"))
-                _pendingFiles.Enqueue(file);
+                QueueFile(file);
         }
 
-        private async Task ProcessFileAsync(string filePath)
+        private void QueueFile(string filePath)
+        {
+            var normalizedPath = Path.GetFullPath(filePath);
+
+            if (_scheduledFiles.TryAdd(normalizedPath, 0))
+                _pendingFiles.Enqueue(normalizedPath);
+        }
+
+        private async Task<string> ReadFileWithRetriesAsync(string filePath, CancellationToken stoppingToken)
+        {
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    return await File.ReadAllTextAsync(filePath, stoppingToken);
+                }
+                catch (IOException ex) when (attempt < MaxReadAttempts)
+                {
+                    logger.LogDebug(ex,
+                        "File still being written, retrying {File} ({Attempt}/{MaxAttempts})",
+                        filePath, attempt, MaxReadAttempts);
+                }
+                catch (UnauthorizedAccessException ex) when (attempt < MaxReadAttempts)
+                {
+                    logger.LogDebug(ex,
+                        "File not accessible yet, retrying {File} ({Attempt}/{MaxAttempts})",
+                        filePath, attempt, MaxReadAttempts);
+                }
+
+                await Task.Delay(ReadRetryDelay, stoppingToken);
+            }
+        }
+
+        private async Task ProcessFileAsync(string filePath, CancellationToken stoppingToken)
         {
             try
             {
-                var content = await File.ReadAllTextAsync(filePath);
+                if (!File.Exists(filePath))
+                {
+                    logger.LogDebug("Skipping missing file: {File}", filePath);
+                    return;
+                }
+
+                var content = await ReadFileWithRetriesAsync(filePath, stoppingToken);
                 var read = LprParser.Parse(filePath, content);
 
                 using var scope = services.CreateScope();
@@ -99,6 +171,17 @@ namespace Q5_ANPR
                         read.RegNumber, read.CameraName, Path.GetFileName(filePath));
                 else
                     logger.LogDebug("Skipped already-processed file: {File}", filePath);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+            }
+            catch (FileNotFoundException)
+            {
+                logger.LogDebug("Skipping file that no longer exists: {File}", filePath);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                logger.LogDebug("Skipping file from missing directory: {File}", filePath);
             }
             catch (Exception ex)
             {

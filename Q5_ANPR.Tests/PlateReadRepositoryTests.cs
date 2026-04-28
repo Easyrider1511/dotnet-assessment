@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 using Q5_ANPR.Data;
@@ -10,20 +11,29 @@ namespace Q5_ANPR.Tests
 {
     public class PlateReadRepositoryTests : IDisposable
     {
+        private readonly SqliteConnection _connection;
         private readonly AnprDbContext _db;
         private readonly PlateReadRepository _repo;
 
         public PlateReadRepositoryTests()
         {
+            _connection = new SqliteConnection("Data Source=:memory:");
+            _connection.Open();
+
             var options = new DbContextOptionsBuilder<AnprDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .UseSqlite(_connection)
                 .Options;
 
             _db = new AnprDbContext(options);
+            _db.Database.EnsureCreated();
             _repo = new PlateReadRepository(_db);
         }
 
-        public void Dispose() => _db.Dispose();
+        public void Dispose()
+        {
+            _db.Dispose();
+            _connection.Dispose();
+        }
 
         private static PlateRead MakePlateRead(string sourceKey = "Camera1/plate001.lpr") => new()
         {
